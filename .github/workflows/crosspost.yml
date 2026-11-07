@@ -33,6 +33,7 @@ jobs:
           BLUESKY_HANDLE: ${{ vars.BLUESKY_HANDLE }}
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           MAX_AGE_HOURS: ${{ vars.MAX_AGE_HOURS }}
+          MIN_AGE_MINUTES: ${{ vars.MIN_AGE_MINUTES }}
           DRY_RUN: ${{ inputs.dry_run }}
       # Runs even if posting failed, so posts that went through are recorded.
       - name: Save state

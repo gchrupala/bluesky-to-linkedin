@@ -6,13 +6,19 @@ It uses the public Bluesky API, which needs no login, and the [crosspost](https:
 
 ## What gets reposted
 
-- Your own top-level posts. Replies, and reposts of other people's posts, are skipped. For a thread, only the first post is reposted.
+- Your own posts. Replies to other people, and reposts of other people's posts, are skipped.
+- A thread, where you continued a post by replying to yourself, becomes one LinkedIn post. If it is longer than the LinkedIn limit of 3,000 characters, the LinkedIn post ends with a link to the thread on Bluesky.
 - Text, with full link URLs and hashtags.
-- Up to four images, with their alt text.
+- Images, with their alt text, up to 20 per post.
 - Link cards, quoted posts and videos become a link at the end of the post.
 - Mentions become plain text, since LinkedIn mentions need a LinkedIn ID.
 
-Posts older than 72 hours are not reposted. To change this, set the repository variable `MAX_AGE_HOURS`.
+## Settings
+
+These optional repository variables are set in the same place as `BLUESKY_HANDLE` (see [Setup](#2-configure-the-repository)):
+
+- `MAX_AGE_HOURS` (default 72): posts older than this are not reposted.
+- `MIN_AGE_MINUTES` (default 15): a post is reposted only once it is this old, so that a thread is complete by then. Parts of a thread added later are not reposted.
 
 ## Setup
 
@@ -20,7 +26,7 @@ Posts older than 72 hours are not reposted. To change this, set the repository v
 
 1. Go to [LinkedIn Developers](https://www.linkedin.com/developers/apps) and create an app. LinkedIn requires the app to be linked to a LinkedIn Page that you administer.
 2. On the **Products** tab, add **Share on LinkedIn** and **Sign in with LinkedIn using OpenID Connect**. Both are approved straight away.
-3. On the **Auth** tab, open **OAuth 2.0 tools** and create a token for your app with the scopes `openid`, `profile` and `w_member_social`.
+3. In the [token generator](https://www.linkedin.com/developers/tools/oauth/token-generator), choose your app, tick the scopes `openid`, `profile` and `w_member_social`, and copy the token.
 
 The token is valid for 60 days. See [Renewing the token](#renewing-the-token).
 

@@ -62,7 +62,8 @@ function linksInText(record) {
 }
 
 // Returns { text, images }, where images is a list of { url, alt }.
-export function convertPost(post) {
+// text is empty for a post with only images.
+function convertPost(post) {
   const record = post.record;
   const embed = post.embed;
   const media =
@@ -95,10 +96,36 @@ export function convertPost(post) {
   }
 
   const parts = [convertText(record), ...extraLinks.map(escapeLittle)];
-  let text = parts.filter((part) => part.trim() !== "").join("\n\n");
-  if (text === "") {
-    // An image-only post. LinkedIn needs some text.
-    text = escapeLittle(postUrl(post));
+  return { text: joinParts(parts), images };
+}
+
+function joinParts(parts) {
+  return parts.filter((part) => part.trim() !== "").join("\n\n");
+}
+
+// Counted on the escaped text, which is never shorter than what LinkedIn shows.
+const MAX_LENGTH = 3000;
+const MAX_IMAGES = 20;
+
+// Joins a thread (a post and the replies with which its author continued
+// it) into one LinkedIn post. If the thread does not fit, the post ends with
+// a link to the thread on Bluesky.
+export function convertThread(posts) {
+  const converted = posts.map(convertPost);
+  const more = escapeLittle(`Continued on Bluesky: ${postUrl(posts[0])}`);
+  const parts = [];
+  const images = [];
+  for (const [i, { text, images: postImages }] of converted.entries()) {
+    const isLast = i === converted.length - 1;
+    const withPost = joinParts([...parts, text, isLast ? "" : more]);
+    if ([...withPost].length > MAX_LENGTH) {
+      parts.push(more);
+      break;
+    }
+    parts.push(text);
+    images.push(...postImages);
   }
-  return { text, images };
+  // LinkedIn needs some text, also for a post with only images.
+  const text = joinParts(parts) || escapeLittle(postUrl(posts[0]));
+  return { text, images: images.slice(0, MAX_IMAGES) };
 }
