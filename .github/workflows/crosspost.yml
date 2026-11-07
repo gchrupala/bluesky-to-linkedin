@@ -1,0 +1,46 @@
+name: Repost Bluesky to LinkedIn
+
+on:
+  schedule:
+    # Every 30 minutes. GitHub may start scheduled runs late.
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print what would be posted, post nothing
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crosspost
+
+jobs:
+  crosspost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm start
+        env:
+          BLUESKY_HANDLE: ${{ vars.BLUESKY_HANDLE }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          MAX_AGE_HOURS: ${{ vars.MAX_AGE_HOURS }}
+          DRY_RUN: ${{ inputs.dry_run }}
+      # Runs even if posting failed, so posts that went through are recorded.
+      - name: Save state
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json 2>/dev/null || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "Update state"
+          git push

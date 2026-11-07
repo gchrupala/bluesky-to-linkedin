@@ -1,0 +1,17 @@
+{
+  "name": "bluesky-to-linkedin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Repost new Bluesky posts to LinkedIn from a scheduled GitHub Actions workflow.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bluesky-to-linkedin.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@humanwhocodes/crosspost": "1.0.4"
+  }
+}

@@ -1,0 +1,104 @@
+// Turns a Bluesky post (as returned by app.bsky.feed.getAuthorFeed) into
+// the text and images of a LinkedIn post.
+
+// The LinkedIn Posts API reads the post text in its "little text" format,
+// where these characters must be escaped with a backslash. Unescaped, they
+// can make LinkedIn cut the post short.
+const RESERVED = /[\\|{}@[\]()<>#*_~]/g;
+
+export function escapeLittle(text) {
+  return text.replace(RESERVED, (c) => "\\" + c);
+}
+
+export function postUrl(post) {
+  const rkey = post.uri.split("/").pop();
+  return `https://bsky.app/profile/${post.author.handle}/post/${rkey}`;
+}
+
+// Bluesky shortens link text (e.g. "example.com/some-lo...") and keeps the
+// full URL in a facet. Facet positions are UTF-8 byte offsets.
+export function convertText(record) {
+  const bytes = Buffer.from(record.text ?? "", "utf8");
+  const facets = [...(record.facets ?? [])].sort(
+    (a, b) => a.index.byteStart - b.index.byteStart,
+  );
+  let out = "";
+  let pos = 0;
+  for (const facet of facets) {
+    const { byteStart, byteEnd } = facet.index;
+    if (byteStart < pos || byteEnd <= byteStart || byteEnd > bytes.length) {
+      continue;
+    }
+    out += escapeLittle(bytes.subarray(pos, byteStart).toString("utf8"));
+    out += convertFacet(
+      bytes.subarray(byteStart, byteEnd).toString("utf8"),
+      facet.features ?? [],
+    );
+    pos = byteEnd;
+  }
+  return out + escapeLittle(bytes.subarray(pos).toString("utf8"));
+}
+
+function convertFacet(segment, features) {
+  const link = features.find((f) => f.$type === "app.bsky.richtext.facet#link");
+  if (link) {
+    return escapeLittle(link.uri);
+  }
+  const tag = features.find((f) => f.$type === "app.bsky.richtext.facet#tag");
+  const sign = segment[0];
+  if (tag && (sign === "#" || sign === "＃")) {
+    return `{hashtag|\\${sign}|${escapeLittle(tag.tag)}}`;
+  }
+  // Mentions stay plain text: LinkedIn mentions need a LinkedIn ID.
+  return escapeLittle(segment);
+}
+
+function linksInText(record) {
+  return (record.facets ?? []).flatMap((facet) =>
+    (facet.features ?? [])
+      .filter((f) => f.$type === "app.bsky.richtext.facet#link")
+      .map((f) => f.uri),
+  );
+}
+
+// Returns { text, images }, where images is a list of { url, alt }.
+export function convertPost(post) {
+  const record = post.record;
+  const embed = post.embed;
+  const media =
+    embed?.$type === "app.bsky.embed.recordWithMedia#view" ? embed.media : embed;
+  const quoted =
+    embed?.$type === "app.bsky.embed.record#view"
+      ? embed.record
+      : embed?.$type === "app.bsky.embed.recordWithMedia#view"
+        ? embed.record?.record
+        : undefined;
+
+  const extraLinks = [];
+  let images = [];
+  switch (media?.$type) {
+    case "app.bsky.embed.images#view":
+      images = media.images.map((image) => ({ url: image.fullsize, alt: image.alt }));
+      break;
+    case "app.bsky.embed.external#view":
+      if (!linksInText(record).includes(media.external.uri)) {
+        extraLinks.push(media.external.uri);
+      }
+      break;
+    case "app.bsky.embed.video#view":
+      // Videos are not uploaded; link to the Bluesky post instead.
+      extraLinks.push(postUrl(post));
+      break;
+  }
+  if (quoted?.$type === "app.bsky.embed.record#viewRecord") {
+    extraLinks.push(postUrl(quoted));
+  }
+
+  const parts = [convertText(record), ...extraLinks.map(escapeLittle)];
+  let text = parts.filter((part) => part.trim() !== "").join("\n\n");
+  if (text === "") {
+    // An image-only post. LinkedIn needs some text.
+    text = escapeLittle(postUrl(post));
+  }
+  return { text, images };
+}
