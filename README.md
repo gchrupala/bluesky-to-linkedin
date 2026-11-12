@@ -10,7 +10,8 @@ It uses the public Bluesky API, which needs no login, and the [crosspost](https:
 - A thread, where you continued a post by replying to yourself, becomes one LinkedIn post. If it is longer than the LinkedIn limit of 3,000 characters, the LinkedIn post ends with a link to the thread on Bluesky.
 - Text, with full link URLs and hashtags.
 - Images, with their alt text, up to 20 per post.
-- Link cards, quoted posts and videos become a link at the end of the post.
+- Link cards and videos become a link at the end of the post.
+- A quoted post is copied as text, with the name of its author and a link to it. Images, videos and link cards in the quoted post are left out; the link leads to them. A quoted post that was deleted or is otherwise unavailable is left out.
 - Mentions become plain text, since LinkedIn mentions need a LinkedIn ID.
 
 ## Settings

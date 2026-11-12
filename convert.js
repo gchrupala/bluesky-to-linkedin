@@ -91,12 +91,27 @@ function convertPost(post) {
       extraLinks.push(postUrl(post));
       break;
   }
-  if (quoted?.$type === "app.bsky.embed.record#viewRecord") {
-    extraLinks.push(postUrl(quoted));
-  }
+  // A quoted post that was deleted, is blocked or was detached by its author
+  // has another $type and is left out.
+  const quote =
+    quoted?.$type === "app.bsky.embed.record#viewRecord" ? convertQuote(quoted) : "";
 
-  const parts = [convertText(record), ...extraLinks.map(escapeLittle)];
+  const parts = [convertText(record), ...extraLinks.map(escapeLittle), quote];
   return { text: joinParts(parts), images };
+}
+
+// Copies the text of a quoted post, with its author and a link to it.
+// Images, videos and link cards in the quoted post are left out: the link
+// leads to them.
+function convertQuote(quoted) {
+  const { handle, displayName } = quoted.author;
+  const name = displayName?.trim() ? `${displayName.trim()} (@${handle})` : `@${handle}`;
+  const text = convertText(quoted.value ?? {});
+  return [
+    escapeLittle(`Quoting ${name}:`),
+    ...(text.trim() ? [`"${text}"`] : []),
+    escapeLittle(postUrl(quoted)),
+  ].join("\n");
 }
 
 function joinParts(parts) {

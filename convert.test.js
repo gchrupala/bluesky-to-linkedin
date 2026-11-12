@@ -52,12 +52,15 @@ test("adds images, link cards and quoted posts", () => {
           $type: "app.bsky.embed.record#viewRecord",
           uri: "at://did:plc:def/app.bsky.feed.post/3kabc",
           author: { handle: "bob.bsky.social" },
+          value: { text: "Hi" },
         },
       },
     },
   };
   assert.deepEqual(convertThread([post]), {
-    text: "Look\n\nhttps://bsky.app/profile/bob.bsky.social/post/3kabc",
+    text:
+      "Look\n\nQuoting \\@bob.bsky.social:\n\"Hi\"\n" +
+      "https://bsky.app/profile/bob.bsky.social/post/3kabc",
     images: [{ url: "https://cdn.example/1.jpg", alt: "A cat" }],
   });
 
@@ -71,6 +74,65 @@ test("adds images, link cards and quoted posts", () => {
     },
   };
   assert.equal(convertThread([card]).text, "https://example.org/a\\_b");
+});
+
+function quotePost(quoted) {
+  return {
+    uri,
+    author,
+    record: { text: "I agree" },
+    embed: { $type: "app.bsky.embed.record#view", record: quoted },
+  };
+}
+
+test("copies the text of a quoted post", () => {
+  const quotedText = "New paper on #NLProc: arxiv.org/abs/2401...";
+  const quoted = {
+    $type: "app.bsky.embed.record#viewRecord",
+    uri: "at://did:plc:def/app.bsky.feed.post/3kabc",
+    author: { handle: "bob.bsky.social", displayName: " Bob (PhD) " },
+    value: {
+      text: quotedText,
+      facets: [
+        facet(quotedText, "#NLProc", { $type: "app.bsky.richtext.facet#tag", tag: "NLProc" }),
+        facet(quotedText, "arxiv.org/abs/2401...", {
+          $type: "app.bsky.richtext.facet#link",
+          uri: "https://arxiv.org/abs/2401.00001",
+        }),
+      ],
+    },
+  };
+  assert.equal(
+    convertThread([quotePost(quoted)]).text,
+    "I agree\n\n" +
+      "Quoting Bob \\(PhD\\) \\(\\@bob.bsky.social\\):\n" +
+      '"New paper on {hashtag|\\#|NLProc}: https://arxiv.org/abs/2401.00001"\n' +
+      "https://bsky.app/profile/bob.bsky.social/post/3kabc",
+  );
+});
+
+test("a quoted post without text gets its author and link only", () => {
+  const quoted = {
+    $type: "app.bsky.embed.record#viewRecord",
+    uri: "at://did:plc:def/app.bsky.feed.post/3kabc",
+    author: { handle: "bob.bsky.social", displayName: "" },
+    value: { text: "" },
+  };
+  assert.equal(
+    convertThread([quotePost(quoted)]).text,
+    "I agree\n\nQuoting \\@bob.bsky.social:\nhttps://bsky.app/profile/bob.bsky.social/post/3kabc",
+  );
+});
+
+test("leaves out a quoted post that is not available", () => {
+  for (const $type of [
+    "app.bsky.embed.record#viewNotFound",
+    "app.bsky.embed.record#viewBlocked",
+    "app.bsky.embed.record#viewDetached",
+  ]) {
+    const quoted = { $type, uri: "at://did:plc:def/app.bsky.feed.post/3kabc" };
+    assert.equal(convertThread([quotePost(quoted)]).text, "I agree");
+  }
 });
 
 test("image-only posts get a link to the Bluesky post", () => {
